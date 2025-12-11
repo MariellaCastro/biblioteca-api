@@ -1,9 +1,10 @@
 using AutoMapper;
 using UniversityLibrary.Application.DTOs.Loan;
 using UniversityLibrary.Application.Interfaces;
-using UniversityLibrary.Domain.Entities;
-using UniversityLibrary.Domain.Exceptions;
 using UniversityLibrary.Domain.Ports.Out;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace UniversityLibrary.Application.Services
 {
@@ -35,29 +36,30 @@ namespace UniversityLibrary.Application.Services
             var book = await _unitOfWork.Books.GetByIdAsync(loanDto.BookId);
             if (book == null)
             {
-                throw new NotFoundException("Libro", loanDto.BookId);
+                throw new KeyNotFoundException($"Libro con ID {loanDto.BookId} no encontrado.");
             }
 
-            if (!book.CanBeBorrowed())
+            if (book.Stock <= 0)
             {
-                throw new DomainException($"No se puede prestar el libro '{book.Title}' porque no hay stock disponible.");
+                throw new InvalidOperationException($"No se puede prestar el libro '{book.Title}' porque no hay stock disponible.");
             }
 
             var hasActiveLoan = await _unitOfWork.Loans.HasActiveLoanAsync(loanDto.BookId, loanDto.StudentName);
             if (hasActiveLoan)
             {
-                throw new DomainException($"El estudiante '{loanDto.StudentName}' ya tiene un préstamo activo de este libro.");
+                throw new InvalidOperationException($"El estudiante '{loanDto.StudentName}' ya tiene un préstamo activo de este libro.");
             }
 
-            var loan = new Loan
+            var loan = new Domain.Entities.Loan
             {
                 BookId = loanDto.BookId,
                 StudentName = loanDto.StudentName,
                 LoanDate = DateTime.Now,
-                Status = "Active"
+                Status = "Active",
+                CreatedAt = DateTime.Now
             };
 
-            book.DecreaseStock();
+            book.Stock--;
 
             await _unitOfWork.Books.UpdateAsync(book);
             var createdLoan = await _unitOfWork.Loans.CreateAsync(loan);
@@ -72,21 +74,22 @@ namespace UniversityLibrary.Application.Services
             var loan = await _unitOfWork.Loans.GetWithBookAsync(loanId);
             if (loan == null)
             {
-                throw new NotFoundException("Préstamo", loanId);
+                throw new KeyNotFoundException($"Préstamo con ID {loanId} no encontrado.");
             }
 
-            if (!loan.IsActive())
+            if (loan.Status != "Active")
             {
-                throw new DomainException($"El préstamo ya ha sido devuelto.");
+                throw new InvalidOperationException($"El préstamo ya ha sido devuelto.");
             }
 
             if (loan.Book != null)
             {
-                loan.Book.IncreaseStock();
+                loan.Book.Stock++;
                 await _unitOfWork.Books.UpdateAsync(loan.Book);
             }
 
-            loan.ReturnLoan();
+            loan.Status = "Returned";
+            loan.ReturnDate = DateTime.Now;
 
             var updatedLoan = await _unitOfWork.Loans.UpdateAsync(loan);
             await _unitOfWork.SaveChangesAsync();
@@ -121,7 +124,7 @@ namespace UniversityLibrary.Application.Services
         public async Task<bool> CanBorrowBookAsync(int bookId)
         {
             var book = await _unitOfWork.Books.GetByIdAsync(bookId);
-            return book != null && book.CanBeBorrowed();
+            return book != null && book.Stock > 0;
         }
 
         public async Task<int> CountActiveLoansByStudentAsync(string studentName)

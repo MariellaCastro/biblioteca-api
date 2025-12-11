@@ -1,6 +1,8 @@
+using UniversityLibrary.Domain.Entities;
+
 namespace UniversityLibrary.Domain.Ports.Out
 {
-    public interface IBookRepository
+    public interface IBookRepository : IRepository<Book> 
     {
         Task<Book?> GetByISBNAsync(string isbn);
         Task<IEnumerable<Book>> GetByAuthorAsync(string author);

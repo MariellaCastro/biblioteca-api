@@ -1,10 +1,10 @@
 using AutoMapper;
 using UniversityLibrary.Application.DTOs.Book;
 using UniversityLibrary.Application.Interfaces;
-using UniversityLibrary.Domain.Entities;
-using UniversityLibrary.Domain.Exceptions;
 using UniversityLibrary.Domain.Ports.Out;
-
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace UniversityLibrary.Application.Services
 {
@@ -36,15 +36,15 @@ namespace UniversityLibrary.Application.Services
             var existingBook = await _unitOfWork.Books.GetByISBNAsync(bookDto.ISBN);
             if (existingBook != null)
             {
-                throw new DomainException($"El ISBN '{bookDto.ISBN}' ya está registrado.");
+                throw new InvalidOperationException($"El ISBN '{bookDto.ISBN}' ya está registrado.");
             }
 
             if (bookDto.Stock < 0)
             {
-                throw new DomainException("El stock no puede ser negativo.");
+                throw new InvalidOperationException("El stock no puede ser negativo.");
             }
 
-            var book = _mapper.Map<Book>(bookDto);
+            var book = _mapper.Map<Domain.Entities.Book>(bookDto);
             var createdBook = await _unitOfWork.Books.CreateAsync(book);
             await _unitOfWork.SaveChangesAsync();
             
@@ -56,13 +56,13 @@ namespace UniversityLibrary.Application.Services
             var book = await _unitOfWork.Books.GetWithLoansAsync(id);
             if (book == null)
             {
-                throw new NotFoundException("Libro", id);
+                throw new KeyNotFoundException($"Libro con ID {id} no encontrado.");
             }
 
             bool hasActiveLoans = false;
             foreach (var loan in book.Loans)
             {
-                if (loan.IsActive())
+                if (loan.Status == "Active")
                 {
                     hasActiveLoans = true;
                     break;
@@ -71,7 +71,7 @@ namespace UniversityLibrary.Application.Services
 
             if (hasActiveLoans)
             {
-                throw new DomainException($"No se puede eliminar el libro porque tiene préstamos activos.");
+                throw new InvalidOperationException($"No se puede eliminar el libro porque tiene préstamos activos.");
             }
 
             var result = await _unitOfWork.Books.DeleteAsync(id);

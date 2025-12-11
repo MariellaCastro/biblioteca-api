@@ -1,3 +1,5 @@
+using UniversityLibrary.Domain.Entities;
+
 namespace UniversityLibrary.Domain.Ports.Out
 {
     public interface ILoanRepository : IRepository<Loan>
