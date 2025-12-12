@@ -103,5 +103,25 @@ namespace UniversityLibrary.API.Controllers
                 return NotFound(new { message = ex.Message });
             }
         }
+        [HttpDelete("{id}")]
+        public async Task<ActionResult> Delete(int id)
+        {
+            try
+            {
+                var result = await _loanService.DeleteAsync(id);
+                if (!result)
+                    return NotFound(new { message = $"Loan with ID {id} not found." });
+
+                return NoContent();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+        }
     }
 }

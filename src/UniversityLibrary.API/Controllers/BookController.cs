@@ -81,6 +81,30 @@ namespace UniversityLibrary.API.Controllers
             }
         }
 
+        [HttpPut("{id}")]
+        public async Task<ActionResult<BookDto>> Update(int id, [FromBody] UpdateBookDto dto)
+        {
+            if (dto == null)
+                return BadRequest(new { message = "Update data is required." });
+
+            try
+            {
+                var updatedBook = await _bookService.UpdateAsync(id, dto);
+                if (updatedBook == null)
+                    return NotFound(new { message = $"Book with ID {id} not found." });
+
+                return Ok(updatedBook);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return Conflict(new { message = "The book was modified by another user. Please refresh and try again." });
+            }
+        }
+
         [HttpDelete("{id}")]
         public async Task<ActionResult> Delete(int id)
         {
